@@ -38,13 +38,20 @@ class RemoteHardwareClient:
     code for how you can connect to your own custom meshtastic services
     """
 
-    def __init__(self, iface) -> None:
+    def __init__(self, iface, pki: bool = False) -> None:
         """
         Constructor
 
         iface is the already open MeshInterface instance
+        pki sends every command as a PKI DM (firmware with USERPREFS_REMOTE_HARDWARE_PKI;
+        the target needs our public key in security.admin_key) instead of on the 'gpio' channel
         """
         self.iface = iface
+        self.pki = pki
+        pub.subscribe(onGPIOreceive, "meshtastic.receive.remotehw")
+        if pki:
+            self.channelIndex = 0
+            return
         ch = iface.localNode.getChannelByName("gpio")
         if not ch:
             our_exit(
@@ -54,8 +61,6 @@ class RemoteHardwareClient:
                 "the other devices using the url from the device where the channel was added."
             )
         self.channelIndex = ch.index
-
-        pub.subscribe(onGPIOreceive, "meshtastic.receive.remotehw")
 
     def _sendHardware(self, nodeid, r, wantResponse=False, onResponse=None):
         if not nodeid:
@@ -70,6 +75,7 @@ class RemoteHardwareClient:
             channelIndex=self.channelIndex,
             wantResponse=wantResponse,
             onResponse=onResponse,
+            pkiEncrypted=self.pki,
         )
 
     def writeGPIOs(self, nodeid, mask, vals):

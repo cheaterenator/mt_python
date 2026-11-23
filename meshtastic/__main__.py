@@ -691,7 +691,7 @@ def onConnected(interface):
             if args.dest == BROADCAST_ADDR:
                 meshtastic.util.our_exit("Warning: Must use a destination node ID.")
             else:
-                rhc = remote_hardware.RemoteHardwareClient(interface)
+                rhc = remote_hardware.RemoteHardwareClient(interface, pki=args.gpio_pki)
 
                 if args.gpio_wrb:
                     bitmask = 0
@@ -722,9 +722,11 @@ def onConnected(interface):
                     print(
                         f"Watching GPIO mask 0x{bitmask:x} from {args.dest}. Press ctrl-c to exit"
                     )
+                    # One WATCH is enough: each one forces a fresh GPIOS_CHANGED, so resending it every
+                    # second made the target transmit every poll. Renew it every 10 minutes.
                     while True:
                         rhc.watchGPIOs(args.dest, bitmask)
-                        time.sleep(1)
+                        time.sleep(600)
 
         # handle settings
         if args.set:
@@ -2621,6 +2623,13 @@ def initParser():
 
     remoteHardwareArgs.add_argument(
         "--gpio-watch", help="Start watching a GPIO mask for changes (ex: '0x10')"
+    )
+
+    remoteHardwareArgs.add_argument(
+        "--gpio-pki",
+        help="Send --gpio-* commands as a PKI DM instead of on the 'gpio' channel "
+        "(target firmware needs USERPREFS_REMOTE_HARDWARE_PKI and our key in security.admin_key)",
+        action="store_true",
     )
 
     have_tunnel = platform.system() == "Linux"
